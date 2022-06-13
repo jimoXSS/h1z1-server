@@ -615,7 +615,7 @@ export class ZoneServer2016 extends EventEmitter {
         //unknownDword40: 1
       },
     });
-    
+
     if (!this.itemDefinitionsCache) {
       this.packItemDefinitions();
     }
@@ -902,7 +902,7 @@ export class ZoneServer2016 extends EventEmitter {
     
     // zonepopdata
     // respawnlocations
-    /*
+    
     this.sendData(client, "ClientGameSettings", {
       Unknown2: 0,
       interactGlowAndDist: 7,
@@ -914,7 +914,7 @@ export class ZoneServer2016 extends EventEmitter {
       unknownFloat2: 12,
       velDamageMulti: 110,
     });
-    */
+    
     this.sendCharacterData(client);
   }
 
