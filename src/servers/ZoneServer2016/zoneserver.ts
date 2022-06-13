@@ -558,7 +558,9 @@ export class ZoneServer2016 extends EventEmitter {
 
   async sendCharacterData(client: Client) {
     await this.loadCharacterData(client);
+
     const containers = this.initializeContainerList(client, false);
+
     this.sendData(client, "SendSelfToClient", {
       data: {
         ...client.character.pGetLightweight(),
@@ -613,7 +615,7 @@ export class ZoneServer2016 extends EventEmitter {
         //unknownDword40: 1
       },
     });
-
+    
     if (!this.itemDefinitionsCache) {
       this.packItemDefinitions();
     }
@@ -623,12 +625,6 @@ export class ZoneServer2016 extends EventEmitter {
       ignore: client.character.characterId,
       characterId: client.character.characterId,
       containers: containers,
-    });
-
-    this.sendData(client, "ReferenceData.WeaponDefinitions", {
-      data: {
-        definitionsData: weaponDefinitions,
-      },
     });
 
     this._characters[client.character.characterId] = client.character; // character will spawn on other player's screen(s) at this point
@@ -870,6 +866,7 @@ export class ZoneServer2016 extends EventEmitter {
   }
 
   sendInitData(client: Client) {
+    
     this.sendData(client, "InitializationParameters", {
       environment: "LIVE",
       serverId: this._worldId,
@@ -877,27 +874,47 @@ export class ZoneServer2016 extends EventEmitter {
 
     this.sendData(client, "SendZoneDetails", {
       zoneName: "Z1",
-      unknownBoolean1: true,
       zoneType: 4,
+      unknownBoolean1: false,
       skyData: this._weather2016,
-      zoneId1: 3905829720,
-      zoneId2: 3905829720,
+      zoneId1: 5,
+      zoneId2: 5,
       nameId: 7699,
-      unknownBoolean7: true,
+      unknownBoolean2: true,
+      unknownString1: "",
+      unknownBoolean3: false
     });
 
+    
+    
+    this.sendData(client, "ReferenceData.WeaponDefinitions", {
+      data: {
+        definitionsData: weaponDefinitions,
+      },
+    });
+
+    
+    this.sendData(client, "ClientBeginZoning", {
+      position: client.character.state.position,
+      rotation: client.character.state.lookAt,
+      skyData: this._weather2016,
+    }); // Needed for trees
+    
+    // zonepopdata
+    // respawnlocations
+    /*
     this.sendData(client, "ClientGameSettings", {
       Unknown2: 0,
-      interactGlowAndDist: 3,
-      unknownBoolean1: false,
-      timescale: 1.0,
-      Unknown4: 0,
-      Unknown: 0,
-      unknownFloat1: 0.0,
-      unknownFloat2: 0.0,
-      velDamageMulti: 1.0,
+      interactGlowAndDist: 7,
+      unknownBoolean1: true,
+      timescale: 1,
+      Unknown4: 1,
+      Unknown: 1,
+      unknownFloat1: 0,
+      unknownFloat2: 12,
+      velDamageMulti: 110,
     });
-
+    */
     this.sendCharacterData(client);
   }
 
