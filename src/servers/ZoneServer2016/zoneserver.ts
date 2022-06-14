@@ -598,7 +598,7 @@ export class ZoneServer2016 extends EventEmitter {
                 unknownBoolean1: true,
                 unknownQword3: client.character.characterId,
                 unknownDword9: 1,
-                unknownBoolean2: false,
+                unknownData1: this.getItemWeaponData(slot)
               };
             }),
         },
@@ -615,11 +615,6 @@ export class ZoneServer2016 extends EventEmitter {
         //unknownDword40: 1
       },
     });
-
-    if (!this.itemDefinitionsCache) {
-      this.packItemDefinitions();
-    }
-    this.sendRawData(client, this.itemDefinitionsCache);
 
     this.sendData(client, "Container.InitEquippedContainers", {
       ignore: client.character.characterId,
@@ -885,7 +880,10 @@ export class ZoneServer2016 extends EventEmitter {
       unknownBoolean3: false
     });
 
-    
+    if (!this.itemDefinitionsCache) {
+      this.packItemDefinitions();
+    }
+    this.sendRawData(client, this.itemDefinitionsCache);
     
     this.sendData(client, "ReferenceData.WeaponDefinitions", {
       data: {
@@ -900,6 +898,7 @@ export class ZoneServer2016 extends EventEmitter {
       skyData: this._weather2016,
     }); // Needed for trees
     
+   
     // zonepopdata
     // respawnlocations
     
@@ -909,7 +908,7 @@ export class ZoneServer2016 extends EventEmitter {
       unknownBoolean1: true,
       timescale: 1,
       Unknown4: 1,
-      Unknown: 1,
+      Unknown5: 1,
       unknownFloat1: 0,
       unknownFloat2: 12,
       velDamageMulti: 110,
@@ -958,6 +957,7 @@ export class ZoneServer2016 extends EventEmitter {
   }
 
   killCharacter(client: Client) {
+    return;
     const character = client.character;
     if (character.isAlive) {
       debug(character.name + " has died");
@@ -2357,6 +2357,48 @@ export class ZoneServer2016 extends EventEmitter {
 
   //#region ********************INVENTORY********************
 
+  getItemWeaponData(slot: inventoryItem) {
+    if(this.isWeapon(slot.itemDefinitionId)) {
+      return {
+        isWeapon: true, // not sent to client, only used as a flag for pack function
+        unknownData1: {
+          unknownBoolean1: false,
+        },
+        unknownData2: {
+          unknownArray1: [{
+            unknownDword1: 0
+          }],
+          unknownArray2: [{
+            unknownDword1: 12,
+            unknownArray1: [{
+              unknownByte1: 0,
+              unknownDword1: 0,
+              unknownDword2: 0,
+              unknownDword3: 0
+            }]
+          }],
+          unknownByte1: 0,
+          unknownByte2: 1,
+          unknownDword1: 0,
+          unknownByte3: 0,
+          unknownByte4: -1,
+          unknownByte5: -1,
+          unknownFloat1: 0,
+          unknownByte6: 0,
+          unknownDword2: 0,
+          unknownByte7: 0,
+          unknownDword3: -1
+        },
+        stats: [],
+        unknownArray1: []
+      }
+    }
+    return {
+      isWeapon: false, // not sent to client, only used as a flag for pack function
+      unknownBoolean1: false,
+    }
+  }
+
   updateLoadout(client: Client, character = client.character) {
     this.sendData(
       client,
@@ -2408,7 +2450,7 @@ export class ZoneServer2016 extends EventEmitter {
         unknownBoolean1: true,
         unknownQword3: client.character.characterId,
         unknownDword9: 1,
-        unknownBoolean2: false,
+        unknownData1: this.getItemWeaponData(item),
       },
     });
   }
