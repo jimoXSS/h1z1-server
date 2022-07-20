@@ -1046,15 +1046,16 @@ export class ZoneServer2016 extends EventEmitter {
     this.sendCharacterData(client);
   }
 
-  worldRoutine(refresh = false) {
+  private worldRoutine(refresh = false) {
     debug("WORLDROUTINE");
+    
     this.executeFuncForAllReadyClients((client: Client) => {
       this.vehicleManager(client);
+      this.itemManager(client);
+      this.npcManager(client);
       this.removeOutOfDistanceEntities(client);
       this.spawnCharacters(client);
-      this.spawnItemObjects(client);
       this.spawnDoors(client);
-      this.spawnNpcs(client);
       this.spawnExplosives(client);
       this.spawnTraps(client);
       this.spawnTemporaryObjects(client);
@@ -1628,16 +1629,18 @@ export class ZoneServer2016 extends EventEmitter {
     }
 
     npcDamage(characterId: string, damage: number) {
-        if ((this._npcs[characterId].health -= damage) <= 0) {
-            this._npcs[characterId].flags.knockedOut = 1;
-            this.sendDataToAllWithSpawnedEntity(
-                this._npcs,
-                characterId,
-                "Character.StartMultiStateDeath",
-                {
-                    characterId: characterId,
-                }
-            );
+      const npc = this._npcs[characterId];
+        if ((npc.health -= damage) <= 0) {
+          npc.flags.knockedOut = 1;
+          npc.deathTime = Date.now();
+          this.sendDataToAllWithSpawnedEntity(
+              this._npcs,
+              characterId,
+              "Character.StartMultiStateDeath",
+              {
+                  characterId: characterId,
+              }
+          );
         }
     }
 
@@ -2000,12 +2003,14 @@ export class ZoneServer2016 extends EventEmitter {
     this._gameTime = Date.now();
   }
 
-  removeOutOfDistanceEntities(client: Client) {
+  private removeOutOfDistanceEntities(client: Client) {
     // does not include vehicles
     const objectsToRemove = client.spawnedEntities.filter(
       (e) =>
         (e && // in case if entity is undefined somehow
-        !e.vehicleId &&
+        !e.vehicleId && // ignore vehicles
+        !e.item && // ignore items
+        !e.deathTime && // ignore npcs
         this.filterOutOfDistance(e, client.character.state.position))
     );
     client.spawnedEntities = client.spawnedEntities.filter((el) => {
@@ -2050,25 +2055,44 @@ export class ZoneServer2016 extends EventEmitter {
     this.sendData(client, "AddSimpleNpc", entity.pGetSimpleNpc());
   }
 
-  spawnNpcs(client: Client) {
+  private npcManager(client: Client) {
     for (const characterId in this._npcs) {
       const npc = this._npcs[characterId];
+      // dead npc despawner
+      if(
+        npc.flags.knockedOut && 
+        Date.now() - npc.deathTime >= this.worldObjectManager.deadNpcDespawnTimer
+      ) {
+        this.deleteEntity(npc.characterId, this._npcs);
+        continue;
+      }
+
+      // npc clientside spawner
       if (
         isPosInRadius(
           npc.npcRenderDistance,
           client.character.state.position,
           npc.state.position
-        ) &&
-        !client.spawnedEntities.includes(npc)
+        )
       ) {
-        this.addLightweightNpc(client, npc);
-        this.updateEquipment(client, npc); // TODO: maybe we can already add the equipment to the npc?
-        client.spawnedEntities.push(npc);
+        if(!client.spawnedEntities.includes(npc)) {
+          this.addLightweightNpc(client, npc);
+          this.updateEquipment(client, npc); // TODO: maybe we can already add the equipment to the npc?
+          client.spawnedEntities.push(npc);
+        }
+      } else {
+        const index = client.spawnedEntities.indexOf(npc);
+        if (index > -1) {
+          this.sendData(client, "Character.RemovePlayer", {
+            characterId: npc.characterId,
+          });
+          client.spawnedEntities.splice(index, 1);
+        }
       }
     }
   }
 
-  spawnExplosives(client: Client) {
+  private spawnExplosives(client: Client) {
     for (const characterId in this._explosives) {
       const explosive = this._explosives[characterId];
       if (
@@ -2085,7 +2109,7 @@ export class ZoneServer2016 extends EventEmitter {
     }
   }
 
-  spawnTraps(client: Client) {
+  private spawnTraps(client: Client) {
     for (const characterId in this._traps) {
       const trap = this._traps[characterId];
       if (
@@ -2102,7 +2126,7 @@ export class ZoneServer2016 extends EventEmitter {
     }
   }
 
-  spawnTemporaryObjects(client: Client) {
+  private spawnTemporaryObjects(client: Client) {
     for (const characterId in this._temporaryObjects) {
       const tempObj = this._temporaryObjects[characterId];
       if (
@@ -2149,27 +2173,45 @@ export class ZoneServer2016 extends EventEmitter {
     }
   }
 
-  spawnItemObjects(client: Client) {
+  private itemManager(client: Client) {
     for (const characterId in this._spawnedItems) {
-      const object = this._spawnedItems[characterId];
+      const itemObject = this._spawnedItems[characterId];
+      // dropped item despawner
+      if((Date.now() - itemObject.creationTime) >= this.worldObjectManager.itemDespawnTimer) {
+        switch(itemObject.spawnerId) {
+          case -1:
+            this.deleteEntity(itemObject.characterId, this._spawnedItems);
+            continue;
+        }
+      }
+      // item entity clientside spawner
       if (
         isPosInRadius(
-          object.npcRenderDistance,
+          itemObject.npcRenderDistance,
           client.character.state.position,
-          object.state.position
-        ) &&
-        !client.spawnedEntities.includes(object)
+          itemObject.state.position
+        )
       ) {
-        this.sendData(client, "AddLightweightNpc", {
-          ...object.pGetLightweight(),
-          nameId: this.getItemDefinition(object.item.itemDefinitionId).NAME_ID,
-        });
-        client.spawnedEntities.push(object);
+        if(!client.spawnedEntities.includes(itemObject)) {
+          this.sendData(client, "AddLightweightNpc", {
+            ...itemObject.pGetLightweight(),
+            nameId: this.getItemDefinition(itemObject.item.itemDefinitionId).NAME_ID,
+          });
+          client.spawnedEntities.push(itemObject);
+        }
+      } else {
+        const index = client.spawnedEntities.indexOf(itemObject);
+        if (index > -1) {
+          this.sendData(client, "Character.RemovePlayer", {
+            characterId: itemObject.characterId,
+          });
+          client.spawnedEntities.splice(index, 1);
+        }
       }
     }
   }
 
-  spawnDoors(client: Client) {
+  private spawnDoors(client: Client) {
     for (const characterId in this._doors) {
       const door = this._doors[characterId];
       if (
@@ -2197,7 +2239,7 @@ export class ZoneServer2016 extends EventEmitter {
     }
   }
 
-  POIManager(client: Client) {
+  private POIManager(client: Client) {
     // sends POIChangeMessage or clears it based on player location
     let inPOI = false;
     Z1_POIs.forEach((point: any) => {
