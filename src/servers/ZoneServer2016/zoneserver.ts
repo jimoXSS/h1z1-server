@@ -75,7 +75,6 @@ import { BaseSimpleNpc } from "./classes/basesimplenpc";
 import { TemporaryEntity } from "./classes/temporaryentity";
 import { BaseEntity } from "./classes/baseentity";
 
-// need to get 2016 lists
 const spawnLocations = require("../../../data/2016/zoneData/Z1_spawnLocations.json"),
   recipes = require("../../../data/2016/sampleData/recipes.json"),
   deprecatedDoors = require("../../../data/2016/sampleData/deprecatedDoors.json"),
@@ -1390,7 +1389,7 @@ export class ZoneServer2016 extends EventEmitter {
       Math.random() * this._spawnLocations.length
     );
     this.sendData(client, "ClientUpdate.UpdateLocation", {
-      position: spawnLocations[randomSpawnIndex].position,
+      position: this._spawnLocations[randomSpawnIndex].position,
     });
     this.clearInventory(client);
     this.giveStartingEquipment(client, true, true);
