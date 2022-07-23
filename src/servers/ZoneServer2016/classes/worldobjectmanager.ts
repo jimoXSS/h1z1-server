@@ -27,7 +27,7 @@ import {
 } from "../../../utils/utils";
 import { EquimentSlots, Items } from "../enums";
 import { Vehicle2016 } from "./../classes/vehicle";
-import { inventoryItem } from "types/zoneserver";
+import { AuthorizedItems, AuthorizedItemsWeighted, inventoryItem } from "types/zoneserver";
 import { ItemObject } from "./itemobject";
 import { DoorEntity } from "./doorentity";
 import { Zombie } from "./zombie";
@@ -50,7 +50,11 @@ function getRandomVehicleId() {
   }
 }
 
-function getRandomItem(authorizedItems: Array<{ id: number; count: number }>) {
+function getRandomItem(authorizedItems: AuthorizedItems) {
+  return authorizedItems[Math.floor(Math.random() * authorizedItems.length)];
+}
+
+function getRandomItemWeighted(authorizedItems: AuthorizedItemsWeighted) {
   return authorizedItems[Math.floor(Math.random() * authorizedItems.length)];
 }
 
@@ -381,7 +385,7 @@ export class WorldObjectManager {
   }
 
   createAR15(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_Weapon_M16A4.adr":
         authorizedItems.push({ id: Items.WEAPON_AR15, count: 1 });
@@ -419,7 +423,7 @@ export class WorldObjectManager {
     });
   }
   createPumpShotgun(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_Weapon_PumpShotgun01.adr":
         authorizedItems.push({ id: Items.WEAPON_SHOTGUN, count: 1 });
@@ -452,7 +456,7 @@ export class WorldObjectManager {
   }
 
   createTools(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_Weapon_Crowbar01.adr":
         authorizedItems.push({ id: Items.WEAPON_CROWBAR, count: 1 });
@@ -495,10 +499,6 @@ export class WorldObjectManager {
         authorizedItems.push({ id: Items.WEAPON_BAT_ALUM, count: 1 });
         break;
       case "ItemSpawner_Weapon_Bow.adr":
-        authorizedItems.push({
-          id: Items.WEAPON_BOW_MAKESHIFT,
-          count: 1,
-        });
         authorizedItems.push({ id: Items.WEAPON_BOW_WOOD, count: 1 });
         authorizedItems.push({ id: Items.WEAPON_BOW_RECURVE, count: 1 });
         break;
@@ -524,7 +524,7 @@ export class WorldObjectManager {
   }
 
   createPistols(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_Weapon_45Auto.adr":
         authorizedItems.push({ id: Items.WEAPON_1911, count: 1 });
@@ -560,7 +560,7 @@ export class WorldObjectManager {
   }
 
   createM24(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_Weapon_M24.adr":
         authorizedItems.push({ id: Items.WEAPON_308, count: 1 });
@@ -593,7 +593,7 @@ export class WorldObjectManager {
   }
 
   createConsumables(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_FirstAidKit.adr":
         authorizedItems.push({ id: Items.FIRST_AID, count: 1 });
@@ -627,7 +627,7 @@ export class WorldObjectManager {
   }
 
   createClothes(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_Clothes_MotorcycleHelmet.adr":
         authorizedItems.push({ id: Items.HELMET_MOTORCYCLE, count: 1 });
@@ -663,8 +663,13 @@ export class WorldObjectManager {
     });
   }
 
+  test() {
+    let yo = "SUGAR";
+    const test = (<any>Items)[yo]
+  }
+  
   createResidential(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawnerResidential_Tier00.adr":
         authorizedItems.push({ id: Items.SUGAR, count: 1 });
@@ -743,7 +748,7 @@ export class WorldObjectManager {
   }
 
   createRare(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawnerRare_Tier00.adr":
         authorizedItems.push({
@@ -811,7 +816,7 @@ export class WorldObjectManager {
   }
 
   createIndustrial(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawnerIndustrial_Tier00.adr":
         authorizedItems.push({ id: Items.BATTERY, count: 1 });
@@ -875,7 +880,7 @@ export class WorldObjectManager {
   }
 
   createWorld(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawnerWorld_Tier00.adr":
         authorizedItems.push({ id: Items.WEAPON_MACHETE01, count: 1 });
@@ -912,7 +917,7 @@ export class WorldObjectManager {
   }
 
   createLog(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_Log01.adr":
         authorizedItems.push({
@@ -942,7 +947,7 @@ export class WorldObjectManager {
   }
 
   createCommercial(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawnerCommercial_Tier00.adr":
         authorizedItems.push({ id: Items.BATTERY, count: 1 });
@@ -976,7 +981,7 @@ export class WorldObjectManager {
   }
 
   createFarm(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawnerFarm.adr":
         authorizedItems.push({ id: Items.FERTILIZER, count: 1 });
@@ -1014,7 +1019,7 @@ export class WorldObjectManager {
     });
   }
   createHospital(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawnerHospital.adr":
         authorizedItems.push({ id: Items.FIRST_AID, count: 1 });
@@ -1058,7 +1063,7 @@ export class WorldObjectManager {
     });
   }
   createMilitary(server: ZoneServer2016, spawnerType: any) {
-    const authorizedItems: Array<{ id: number; count: number }> = [];
+    const authorizedItems: AuthorizedItems = [];
     switch (spawnerType.actorDefinition) {
       case "ItemSpawner_Z1_MilitaryBase_Tents1.adr": // uncommon
         authorizedItems.push({ id: Items.WEAPON_CROSSBOW, count: 1 });

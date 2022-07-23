@@ -682,6 +682,10 @@ export interface DamageRecord {
   };
 }
 
+export type AuthorizedItems = Array<{ id: number; count: number }>;
+
+export type AuthorizedItemsWeighted = Array<{ id: number; count: number, weight: number }>;
+
 export interface SoeServer {
   on: (arg0: string, arg1: any) => void;
   start: (
