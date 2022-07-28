@@ -21,7 +21,8 @@
     "typescript": "^4.7.2"
   },
   "directories": {
-    "src": "./src"
+    "doc": "docs",
+    "test": "tests"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.27.0",
