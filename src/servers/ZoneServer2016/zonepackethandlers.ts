@@ -27,7 +27,8 @@ let dev = require("./commands/dev").default;
 
 let admin = require("./commands/admin").default;
 
-import { _, Int64String, isPosInRadius, getDistance, eul2quat, quat2matrix } from "../../utils/utils";
+// import { _, Int64String, isPosInRadius, getDistance, eul2quat, quat2matrix } from "../../utils/utils";
+import { _, Int64String, isPosInRadius, getDistance, eul2quat, quat2matrix, toInt } from "../../utils/utils";
 
 import { CraftManager } from "./classes/craftmanager";
 import { inventoryItem, loadoutContainer } from "types/zoneserver";
