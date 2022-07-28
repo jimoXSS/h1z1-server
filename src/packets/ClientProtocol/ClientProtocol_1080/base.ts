@@ -3146,7 +3146,26 @@ export const basePackets: any = [
     },
   ],
   ["NavGen", 0xcc, {}],
-  ["Locks", 0xcd, {}],
+  ["Locks.ShowMenu", 0xcd05,
+        {
+            fields: [
+                { name: "characterId", type: "uint64string", defaultValue: "0" },
+                { name: "unknownDword1", type: "uint32", defaultValue: 1 },
+                { name: "lockType", type: "uint32", defaultValue: 1 },// 1-lock, 2-enter password
+                { name: "objectCharacterId", type: "uint64string", defaultValue: "0" },
+            ],
+        },
+    ],
+    ["Locks.setLock", 0xcd0300,
+        {
+            fields: [
+                { name: "unknownDword1", type: "uint32", defaultValue: 1 }, 
+                { name: "unknownDword2", type: "uint32", defaultValue: 1 },
+                { name: "password", type: "uint32", defaultValue: 0 },
+                
+            ],
+        },
+    ],
   ["Ragdoll", 0xce, {}],
   ["CharacterState", 0xd0, {}],
   [
@@ -3347,7 +3366,53 @@ export const basePackets: any = [
   ["ScreenEffectBase", 0xe2, {}],
   ["SpectatorBase", 0xe3, {}],
   ["WhitelistBase", 0xe4, {}],
-  ["NpcFoundationPermissionsManagerBase", 0xe5, {}],
+  ["NpcFoundationPermissionsManagerBase.showPermissions", 0xe505,
+        {
+            fields: [
+                { name: "characterId", type: "uint64string", defaultValue: "0" },
+                { name: "characterId2", type: "uint64string", defaultValue: "0" },
+
+                {
+                    name: "permissions",
+                    type: "array",
+                    defaultValue: [],
+                    fields: [
+                        { name: "characterId", type: "uint64string", defaultValue: "0" },
+                        { name: "characterName", type: "string", defaultValue: "0" },
+                        { name: "useContainers", type: "boolean", defaultValue: false },
+                        { name: "build", type: "boolean", defaultValue: false },
+                        { name: "demolish", type: "boolean", defaultValue: false },
+                        { name: "visit", type: "boolean", defaultValue: false },
+                    ],
+                },
+            ],
+        },
+    ],
+
+    ["NpcFoundationPermissionsManager.AddPermission", 0xe501,
+        {
+            fields: [
+                { name: "objectCharacterId", type: "uint64string", defaultValue: "0" },
+                { name: "characterName", type: "string", defaultValue: "" },
+                { name: "unk", type: "uint64string", defaultValue: "0" },
+                { name: "permissionSlot", type: "uint32", defaultValue: 0 },
+
+            ],
+        },
+    ],
+
+    ["NpcFoundationPermissionsManager.EditPermission", 0xe502,
+        {
+            fields: [
+                { name: "objectCharacterId", type: "uint64string", defaultValue: "0" },
+                { name: "unk", type: "uint64string", defaultValue: "0" },
+                { name: "characterName", type: "string", defaultValue: "" },
+
+                { name: "permissionSlot", type: "uint32", defaultValue: 0 },
+
+            ],
+        },
+    ],
   ["BattlEyeData", 0xe6, {}],
   ["OnlineIdBase", 0xe7, {}],
   ["Ps4PlayGoBase", 0xe8, {}],

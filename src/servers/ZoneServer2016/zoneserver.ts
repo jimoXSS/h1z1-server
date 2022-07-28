@@ -41,12 +41,12 @@ import { healthThreadDecorator } from "../shared/workers/healthWorker";
 import { changeFog } from "./workers/dynamicWeather";
 
 import {
-  characterEquipment,
-  DamageRecord,
-  inventoryItem,
-  loadoutContainer,
-  loadoutItem,
-  Weather2016,
+    characterEquipment,
+    DamageRecord,
+    inventoryItem,
+    loadoutContainer,
+    loadoutItem,
+    Weather2016,
 } from "../../types/zoneserver";
 import {
   h1z1PacketsType,
@@ -56,21 +56,22 @@ import {
 } from "../../types/packets";
 import { Character2016 as Character } from "./classes/character";
 import {
-  _,
-  generateRandomGuid,
-  getAppDataFolderPath,
-  initMongo,
-  Int64String,
-  isPosInRadius,
-  getDistance,
-  randomIntFromInterval,
-  Scheduler,
-  generateTransientId,
-  objectIsEmpty,
-  getRandomFromArray,
-  getRandomKeyFromAnObject,
-  bigIntToHexString,
-  calculateDamageDistFallOff,
+    _,
+    generateRandomGuid,
+    getAppDataFolderPath,
+    initMongo,
+    Int64String,
+    isPosInRadius,
+    getDistance,
+    randomIntFromInterval,
+    Scheduler,
+    generateTransientId,
+    objectIsEmpty,
+    getRandomFromArray,
+    getRandomKeyFromAnObject,
+    bigIntToHexString,
+    calculateDamageDistFallOff,
+    eul2quat
 } from "../../utils/utils";
 
 import { Db, MongoClient } from "mongodb";
@@ -87,6 +88,9 @@ import { BaseSimpleNpc } from "./classes/basesimplenpc";
 import { TemporaryEntity } from "./classes/temporaryentity";
 import { BaseEntity } from "./classes/baseentity";
 import { ClientUpdateDeathMetrics } from "types/zone2016packets";
+import { constructionDoor } from "./classes/constructionDoor";
+import { constructionFoundation } from "./classes/constructionFoundation";
+import { simpleConstruction } from "./classes/simpleConstruction";
 
 const spawnLocations = require("../../../data/2016/zoneData/Z1_spawnLocations.json"),
   recipes = require("../../../data/2016/sampleData/recipes.json"),
@@ -103,6 +107,7 @@ const spawnLocations = require("../../../data/2016/zoneData/Z1_spawnLocations.js
 
 @healthThreadDecorator
 export class ZoneServer2016 extends EventEmitter {
+
   _gatewayServer: GatewayServer;
   _protocol: H1Z1Protocol;
   _db?: Db;
@@ -1087,19 +1092,20 @@ export class ZoneServer2016 extends EventEmitter {
 
   private worldRoutine(refresh = false) {
     debug("WORLDROUTINE");
-
     this.executeFuncForAllReadyClients((client: Client) => {
-      this.vehicleManager(client);
-      this.itemManager(client);
-      this.npcManager(client);
-      this.removeOutOfDistanceEntities(client);
-      this.spawnCharacters(client);
-      this.spawnDoors(client);
-      this.spawnExplosives(client);
-      this.spawnTraps(client);
-      this.spawnTemporaryObjects(client);
-      this.POIManager(client);
-      client.posAtLastRoutine = client.character.state.position;
+        this.vehicleManager(client);
+        this.removeOutOfDistanceEntities(client);
+        this.spawnCharacters(client);
+        this.spawnItemObjects(client);
+        this.spawnDoors(client);
+        this.spawnNpcs(client);
+        this.spawnConstructionNpcs(client);
+        this.spawnExplosives(client);
+        this.spawnTraps(client);
+        this.spawnTemporaryObjects(client);
+        this.POIManager(client);
+        this.foundationPermissionChecker(client);
+        client.posAtLastRoutine = client.character.state.position;
     });
     if (this._ready) this.worldObjectManager.run(this);
     if (refresh) this.worldRoutineTimer.refresh();
@@ -1689,21 +1695,26 @@ export class ZoneServer2016 extends EventEmitter {
   }
 
   getEntityType(entityKey: string): number {
-    switch (true) {
-      case !!this._npcs[entityKey]:
-        return EntityTypes.NPC;
-      case !!this._vehicles[entityKey]:
-        return EntityTypes.VEHICLE;
-      case !!this._characters[entityKey]:
-        return EntityTypes.PLAYER;
-      case !!this._spawnedItems[entityKey]:
-        return EntityTypes.OBJECT;
-      case !!this._doors[entityKey]:
-        return EntityTypes.DOOR;
-      case !!this._explosives[entityKey]:
-        return EntityTypes.EXPLOSIVE;
-      default:
-        return EntityTypes.INVALID;
+      switch (true) {
+          case !!this._npcs[entityKey]:
+              return EntityTypes.NPC;
+          case !!this._vehicles[entityKey]:
+              return EntityTypes.VEHICLE;
+          case !!this._characters[entityKey]:
+              return EntityTypes.PLAYER;
+          case !!this._spawnedItems[entityKey]:
+              return EntityTypes.OBJECT;
+          case !!this._doors[entityKey]:
+              return EntityTypes.DOOR;
+          case !!this._explosives[entityKey]:
+              return EntityTypes.EXPLOSIVE;
+          case !!this._constructionFoundations[entityKey]:
+              return EntityTypes.CONSTRUCTION_FOUNDATION;
+          case !!this._constructionDoors[entityKey]:
+              return EntityTypes.CONSTRUCTION_DOOR;
+          default:
+              return EntityTypes.INVALID;
+      }
     }
   }
 
@@ -2203,6 +2214,57 @@ export class ZoneServer2016 extends EventEmitter {
   addSimpleNpc(client: Client, entity: BaseSimpleNpc) {
     this.sendData(client, "AddSimpleNpc", entity.pGetSimpleNpc());
   }
+  
+  foundationPermissionChecker(client: Client) {
+        for (const a in this._constructionFoundations) {
+            let allowed = false;
+            const foundation = this._constructionFoundations[a];
+            let detectRange = 7;
+            switch (foundation.actorModelId) {
+                case 9180: detectRange = 2;
+                    break;
+                case 48: detectRange = 10;
+                    break;
+            }
+            foundation.permissions.forEach((element: any) => {
+                if (element.characterId === client.character.characterId && element.visit) {
+                    allowed = true;
+                }
+            })
+            if (
+                isPosInRadius(
+                    detectRange,
+                    client.character.state.position,
+                    foundation.state.position
+                ) && !allowed
+            ) {
+                this.sendChatText(client, "Construction: no visitor permission")
+                const range = 11,
+                    lat = foundation.state.position[0],
+                    long = foundation.state.position[2];
+                const currentAngle = 0;
+                const x2 = Math.cos(currentAngle) * range;
+                const y2 = Math.sin(currentAngle) * range;
+                const p = [lat + x2, long + y2];
+                client.character.state.position = new Float32Array([
+                    p[0],
+                    client.character.state.position[1] + 1,
+                    p[1],
+                    1,
+                ]);
+                this.sendData(client, "ClientUpdate.UpdateLocation", {
+                    position: [
+                        p[0],
+                        client.character.state.position[1],
+                        p[1],
+                        1,
+                    ],
+                    unknownBool2: false // disable loading screen on teleport
+                });
+
+            }
+        }
+    }
 
   private npcManager(client: Client) {
     for (const characterId in this._npcs) {
@@ -2241,6 +2303,53 @@ export class ZoneServer2016 extends EventEmitter {
       }
     }
   }
+  
+  spawnConstructionNpcs(client: Client) {
+        for (const characterId in this._constructionFoundations) {
+            const npc = this._constructionFoundations[characterId];
+            if (
+                isPosInRadius(
+                    500,
+                    client.character.state.position,
+                    npc.state.position
+                ) &&
+                !client.spawnedEntities.includes(npc)
+            ) {
+                this.addLightweightNpc(client, npc);
+                client.spawnedEntities.push(npc);
+            }
+        }
+
+        for (const characterId in this._constructionDoors) {
+            const npc = this._constructionDoors[characterId];
+            if (
+                isPosInRadius(
+                    500,
+                    client.character.state.position,
+                    npc.state.position
+                ) &&
+                !client.spawnedEntities.includes(npc)
+            ) {
+                this.addLightweightNpc(client, npc);
+                client.spawnedEntities.push(npc);
+            }
+        }
+
+        for (const characterId in this._constructionSimple) {
+            const object = this._constructionSimple[characterId];
+            if (
+                isPosInRadius(
+                    30,
+                    client.character.state.position,
+                    object.state.position
+                ) &&
+                !client.spawnedEntities.includes(object)
+            ) {
+                this.addSimpleNpc(client, object);
+                client.spawnedEntities.push(object);
+            }
+        }
+    }
 
   private spawnExplosives(client: Client) {
     for (const characterId in this._explosives) {
@@ -2803,6 +2912,327 @@ export class ZoneServer2016 extends EventEmitter {
       }
     }
   }
+  
+  sendConstructionData(client: Client) {
+        const buffer = Buffer.from([0xCA, 0x05, 0x00, 0x09, 0x00, 0x00, 0x00, 0x2E, 0x00, 0x00, 0x00, 0x2D, 0x00, 0x00, 0x00, 0x2F, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x31, 0x00, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x2E, 0x00, 0x00, 0x00, 0x2D, 0x00, 0x00, 0x00, 0x2F, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x31, 0x00, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x2C, 0x00, 0x00, 0x00, 0x39, 0x00, 0x00, 0x00, 0x1B, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x37, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00]);
+        this.sendRawData(client, buffer);
+    }
+    
+    placement(client: Client, itemDefinitionId: number, modelId: number, position: Float32Array, rotation: Float32Array) {
+        const item = client.character.getItemById(itemDefinitionId);
+        if (!item) {
+            this.sendData(client, "Construction.PlacementFinalizeResponse", {
+                status: 1,
+                unknownString1: "",
+            });
+            return
+        }
+        const allowedItems = [Items.IED, Items.LANDMINE, Items.PUNJI_STICKS, Items.SNARE]
+
+        for (const a in this._constructionFoundations) {
+            const foundation = this._constructionFoundations[a];
+            let allowBuild = false;
+            this._constructionFoundations[a].permissions.forEach((permission: any) => {
+                if (permission.characterId === client.character.characterId && permission.build === true) {
+                    allowBuild = true;
+                }
+            })
+            if (isPosInRadius(
+                foundation.actorModelId === 9180 ? 5 : 30,
+                position,
+                foundation.state.position) && allowBuild === false && !allowedItems.includes(itemDefinitionId)
+            ) {
+                this.sendChatText(client, "Placement blocked: No build permission")
+                this.sendData(client, "Construction.PlacementFinalizeResponse", {
+                    status: 0,
+                    unknownString1: "",
+                });
+                return;
+            }
+        }
+        this.removeInventoryItem(client, item);
+        this.sendData(client, "Construction.PlacementFinalizeResponse", {
+            status: 1,
+            unknownString1: "",
+        });
+        switch (itemDefinitionId) {
+            case Items.SNARE: this.placeTrap(client, itemDefinitionId, modelId, position, rotation);
+                break;
+            case Items.PUNJI_STICKS: this.placeTrap(client, itemDefinitionId, modelId, position, rotation);
+                break;
+            case Items.FLARE: this.placeTemporaryEntity(client, itemDefinitionId, modelId, position, rotation, 900000);
+                break;
+            case Items.IED: this.placeExplosiveEntity(client, itemDefinitionId, modelId, position, eul2quat(rotation), true);
+                break;
+            case Items.LANDMINE: this.placeExplosiveEntity(client, itemDefinitionId, modelId, position, eul2quat(rotation), false);
+                break;
+            case Items.METAL_GATE:
+            case Items.METAL_DOOR: this.placeConstructionDoor(client, itemDefinitionId, modelId, position, rotation);
+                break;
+            case Items.GROUND_TAMPER:
+            case Items.SHACK:
+            case Items.FOUNDATION: this.placeConstructionFoundation(client, itemDefinitionId, modelId, position, eul2quat(rotation));
+                break;
+            default:
+                const characterId = this.generateGuid();
+                const transientId = this.getTransientId(characterId);
+                const npc = new simpleConstruction(
+                    characterId,
+                    transientId,
+                    modelId,
+                    position,
+                    new Float32Array([0, rotation[0], 0]),
+                );
+                this._constructionSimple[characterId] = npc;
+                break;
+        }
+
+    }
+
+    placeConstructionDoor(client: Client, itemDefinitionId: number, modelId: number, position: Float32Array, rotation: Float32Array) {
+        const characterId = this.generateGuid();
+        const transientId = this.getTransientId(characterId);
+        const npc = new constructionDoor(
+            characterId,
+            transientId,
+            modelId,
+            position,
+            rotation,
+            new Float32Array([1, 1, 1, 1]),
+            0,
+            client.character.characterId,
+        )
+        this._constructionDoors[characterId] = npc;
+    }
+
+    placeConstructionFoundation(client: Client, itemDefinitionId: number, modelId: number, position: Float32Array, rotation: Float32Array) {
+        const characterId = this.generateGuid();
+        const transientId = this.getTransientId(characterId);
+        const npc = new constructionFoundation(
+            characterId,
+            transientId,
+            modelId,
+            position,
+            rotation,
+            0,
+            client.character.characterId,
+            client.character.name
+        )
+        this._constructionFoundations[characterId] = npc;
+    }
+
+    placeTemporaryEntity(client: Client, itemDefinitionId: number, modelId: number, position: Float32Array, rotation: Float32Array, time: number) {
+        const characterId = this.generateGuid();
+        const transientId = this.getTransientId(characterId);
+        const npc = new TemporaryEntity(
+            characterId,
+            transientId,
+            modelId,
+            position,
+            rotation,
+        )
+        npc.disappearTimer = setTimeout(() => {
+            this.sendDataToAllWithSpawnedEntity(
+                this._temporaryObjects,
+                characterId,
+                "Character.RemovePlayer",
+                {
+                    characterId: characterId,
+                }
+            );
+            delete this._temporaryObjects[characterId];
+        }, time);
+        this._temporaryObjects[characterId] = npc;
+    }
+
+    placeTrap(client: Client, itemDefinitionId: number, modelId: number, position: Float32Array, rotation: Float32Array) {
+        const characterId = this.generateGuid();
+        const transientId = this.getTransientId(characterId);
+        const npc = new TrapEntity(
+            characterId,
+            transientId,
+            modelId,
+            position,
+            new Float32Array([0, rotation[0], 0]),
+        )
+        this._traps[characterId] = npc;
+        switch (itemDefinitionId) {
+            case Items.PUNJI_STICKS:
+                npc.trapTimer = setTimeout(() => {
+                    if (!this._traps[characterId]) {
+                        return;
+                    }
+                    for (const a in this._clients) {
+                        if (
+                            getDistance(
+                                this._clients[a].character.state.position,
+                                npc.state.position
+                            ) < 1.5 &&
+                            this._clients[a].character.isAlive &&
+                            !this._clients[a].vehicle.mountedVehicle
+                        ) {
+                            this.playerDamage(this._clients[a], 501, undefined, true);
+                            this.sendDataToAllWithSpawnedEntity(
+                                this._traps,
+                                characterId,
+                                "Character.PlayWorldCompositeEffect",
+                                {
+                                    characterId: "0x0",
+                                    effectId: 5116,
+                                    position: this._clients[a].character.state.position,
+                                }
+                            );
+
+                            this.sendDataToAllWithSpawnedEntity(
+                                this._traps,
+                                characterId,
+                                "Character.UpdateSimpleProxyHealth",
+                                npc.pGetSimpleProxyHealth()
+                            );
+                            npc.health -= 1000;
+                        }
+                    }
+
+                    if (npc.health > 0) {
+                        npc.trapTimer?.refresh();
+                    } else {
+                        this.sendDataToAllWithSpawnedEntity(
+                            this._traps,
+                            characterId,
+                            "Character.PlayWorldCompositeEffect",
+                            {
+                                characterId: "0x0",
+                                effectId: 163,
+                                position: npc.state.position,
+                            }
+                        );
+                        this.sendDataToAllWithSpawnedEntity(
+                            this._traps,
+                            characterId,
+                            "Character.RemovePlayer",
+                            {
+                                characterId: characterId,
+                            }
+                        );
+                        delete this._traps[characterId];
+                        return;
+                    }
+                }, 500);
+                break;
+            case Items.SNARE:
+                npc.trapTimer = setTimeout(() => {
+                    if (!this._traps[characterId]) {
+                        return;
+                    }
+                    for (const a in this._clients) {
+                        if (
+                            getDistance(
+                                this._clients[a].character.state.position,
+                                npc.state.position
+                            ) < 1
+                        ) {
+                            this.playerDamage(this._clients[a], 2000);
+                            this._clients[a].character._resources[
+                                ResourceIds.BLEEDING
+                            ] += 41;
+                            this.updateResourceToAllWithSpawnedCharacter(
+                                client,
+                                client.character.characterId,
+                                client.character._resources[ResourceIds.BLEEDING] > 0
+                                    ? client.character._resources[ResourceIds.BLEEDING]
+                                    : 0,
+                                ResourceIds.BLEEDING
+                            );
+                            this.sendDataToAllWithSpawnedEntity(
+                                this._traps,
+                                characterId,
+                                "Character.PlayWorldCompositeEffect",
+                                {
+                                    characterId: characterId,
+                                    effectId: 1630,
+                                    position: this._traps[characterId].state.position,
+                                }
+                            );
+                            npc.isTriggered = true;
+                            this.applyMovementModifier(client, 0.4, "snared");
+                        }
+                    }
+
+                    if (!npc.isTriggered) {
+                        npc.trapTimer?.refresh();
+                    } else {
+                        this.sendDataToAllWithSpawnedEntity(
+                            this._traps,
+                            characterId,
+                            "Character.RemovePlayer",
+                            {
+                                characterId: characterId,
+                            }
+                        );
+                        npc.actorModelId = 1974;
+                        this.worldObjectManager.createLootEntity(
+                            this,
+                            this.generateItem(1415),
+                            npc.state.position,
+                            npc.state.rotation,
+                            15
+                        );
+                        delete this._traps[characterId];
+                    }
+                }, 200);
+                break;
+
+        }
+        this._traps[characterId] = npc;
+    }
+
+    placeExplosiveEntity(client: Client, itemDefinitionId: number, modelId: number, position: Float32Array, rotation: Float32Array, isIed: boolean) {
+        const characterId = this.generateGuid();
+        const transientId = this.getTransientId(characterId);
+        const npc = new ExplosiveEntity(
+            characterId,
+            transientId,
+            modelId,
+            position,
+            rotation,
+            isIed
+        )
+        if (isIed) {
+            this._explosives[characterId] = npc;
+            return;
+        }
+        npc.mineTimer = setTimeout(() => {
+            if (!this._explosives[characterId]) {
+                return;
+            }
+            for (const a in this._clients) {
+                if (
+                    getDistance(
+                        this._clients[a].character.state.position,
+                        npc.state.position
+                    ) < 0.6
+                ) {
+                    this.explodeExplosive(npc);
+                    return;
+                }
+            }
+            for (const a in this._vehicles) {
+                if (
+                    getDistance(
+                        this._vehicles[a].state.position,
+                        npc.state.position
+                    ) < 2.2
+                ) {
+                    this.explodeExplosive(npc);
+                    return;
+                }
+            }
+            if (this._explosives[characterId]) {
+                npc.mineTimer?.refresh();
+            }
+        }, 90);
+        this._explosives[characterId] = npc;
+    }
 
   mountVehicle(client: Client, vehicleGuid: string) {
     const vehicle = this._vehicles[vehicleGuid];
